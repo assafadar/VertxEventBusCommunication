@@ -150,6 +150,7 @@ public abstract class EventBusAbstractServer{
 			JsonArray members = reponseMessage.getData().getJsonArray("members");
 			EventBusMessage connectMessage = EventBusMessageUtils.connectMessage(serverName); 
 			EventBusNetworking.getNetworking().sendMultipleMessages(members, HttpMethod.CONNECT, connectMessage);
+			EventBusNetworking.getNetworking().markAsConnected();
 			future.complete();
 		}catch (Exception e) {
 			future.fail(e);
