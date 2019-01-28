@@ -10,7 +10,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 
 public class EventBusMessageUtils {
-	private static Map<String,Handler<AsyncResult<JsonObject>>> awatingResponseMessages = new HashMap<>();
 	
 	public static JsonObject getErrorMessage(Throwable e) {
 		return new JsonObject().put("error", e)
@@ -27,19 +26,13 @@ public class EventBusMessageUtils {
 		}
 		return true;
 	}
-	
-	public static void addMessageHandler(String messageID, Handler<AsyncResult<JsonObject>> resultHandler) {
-		awatingResponseMessages.put(messageID, resultHandler);
-	}
-	
-	public static void removeMessageHandler(String messageID) {awatingResponseMessages.remove(messageID);}
-	
-	public static Handler<AsyncResult<JsonObject>> getMessageHandler(String messageID){
-		return awatingResponseMessages.get(messageID);
-	}
 
-	public static boolean isAwaitingResponse(String messageID) {
-		return awatingResponseMessages.containsKey(messageID);
+	public static EventBusMessage connectMessage(String sender) {
+		// TODO Auto-generated method stub
+		return new EventBusMessage(sender,"connect",new JsonObject());
 	}
+	
+	
+	
 	
 }

@@ -2,12 +2,13 @@ package org.crypto.communication.internal.utils;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Set;
 
 import org.crypto.communication.internal.notifications.NotificationService;
 
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 public class MembersManager {
 	//Available servers map.
@@ -20,19 +21,20 @@ public class MembersManager {
 		clientNames = new JsonArray();
 	}
 	
-	public static void addClient(String serverName, HttpMethod requestMethod,String consumerAddress) {
-		if(eventBusClients.containsKey(serverName)) {
-			eventBusClients.get(serverName).put(requestMethod, consumerAddress);
-		}else {
-			Map<HttpMethod,String> newServer = new HashMap<>();
-			newServer.put(requestMethod, consumerAddress);
-			eventBusClients.put(serverName, newServer);
+	public static void addClient(String serverName, HttpMethod requestMethod,JsonObject handlers) {
+		if(!eventBusClients.containsKey(serverName)) {
+			eventBusClients.put(serverName, new HashMap<>());
 		}
+		JsonArray handlerMthods = handlers.getJsonArray("methods") ;
+		handlerMthods.forEach(method -> {
+			try {
+				HttpMethod httpMethod = HttpMethod.valueOf((String)method);
+				eventBusClients.get(serverName).put(httpMethod, serverName+handlerMthods);
+			}catch (Exception e) {
+				//Todo: logger - invalid http method was presented
+			}
+		});
 		clientNames.add(serverName);
-//		if(newClientListener != null && requestMethod == HttpMethod.CONNECT) {
-//			newClientListener.apply(serverName);
-//		}
-		
 		NotificationService.sendNewClientNotification(serverName);
 	}
 	

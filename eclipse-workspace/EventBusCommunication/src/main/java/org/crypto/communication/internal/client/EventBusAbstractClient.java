@@ -1,12 +1,17 @@
 package org.crypto.communication.internal.client;
 
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 
+import org.crypto.communication.internal.log.EventBusLogger;
 import org.crypto.communication.internal.messages.EventBusMessage;
 import org.crypto.communication.internal.net.EventBusNetworking;
 import org.crypto.communication.internal.notifications.IMessageFailedNotification;
@@ -39,19 +44,47 @@ import io.vertx.core.logging.LoggerFactory;
 public abstract class EventBusAbstractClient 
 		implements IMessageFailedNotification, IMessageSuccessNotification,INewClientNotification{
 	
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	private static final Level LOG_LEVEL = Level.SEVERE;
 	private EventBus eventBus;
 	private Vertx vertx;
 	private String clientName;
+	private AtomicLong connectTimerID;
+	//Designated for the serverIMPL for saving awaiting response messages - Should be used by the receiving server client.
+	private Map<String,EventBusMessage> awatingResponseMessages;
 	
 	public EventBusAbstractClient(Vertx vertx, String clientName) {
 		super();
 		this.vertx = vertx;
+		this.connectTimerID = new AtomicLong(0);
 		this.eventBus = vertx.eventBus();
 		this.clientName = clientName;
+		this.awatingResponseMessages  = new HashMap<>();
 		NotificationService.addNewClientObservers(this);
+		EventBusLogger.createLogger(getClass(), LOG_LEVEL);
+		//Connecting first to the event bus verticle instance in order to get managed connection list.
+		sendConnectRequest();
 	}
 	
+	/**
+	 * Connects to the Event Bus main router, a verticle that gathers all info
+	 * on other verticles running on the same server.
+	 */
+	
+	private void sendConnectRequest() {
+		if(!clientName.equals(MembersManager.getDefaultName())) {
+			EventBusMessage connectMessage = EventBusMessageUtils.connectMessage(clientName);
+			connectTimerID.set(vertx.setPeriodic(6000, task -> {
+				try {
+					sendMessage(MembersManager.getDefaultName(), HttpMethod.CONNECT, connectMessage);
+					EventBusLogger.INFO(getClass(), "Sent subscribe request to event bus router", LOG_LEVEL);
+				}catch (Exception e) {
+					EventBusLogger.ERROR(getClass(), e,"Failed sending connect message to event bus router", LOG_LEVEL);
+				}
+			}));
+		}else {
+			EventBusLogger.INFO(getClass(), "Event bus router initialized client", LOG_LEVEL);
+		}
+	}
 	/**
 	 * 
 	 * @param serverName - target (relevant target eventbus server.)
@@ -60,13 +93,12 @@ public abstract class EventBusAbstractClient
 	 * 
 	 * Saves the particular message in awatingReponse map - waiting for response.
 	 */
-	public void sendMessageWithResponse(String serverName, HttpMethod requestMethod, EventBusMessage message
-			,Handler<AsyncResult<JsonObject>> resultHandler) {
-		
-		EventBusMessageUtils.addMessageHandler(message.getMessageID(), resultHandler);
-		sendMessage(serverName, requestMethod, message);
-	}
+//	public void sendMessageWithResponse(String serverName, HttpMethod requestMethod, EventBusMessage message) throws Exception{
+//		EventBusMessageUtils.addMessageHandler(message.getMessageID(), message);
+//		sendMessage(serverName, requestMethod, message);
+//	}
 	
+
 	/**
 	 * 
 	 * @param serverName - target (relevant target eventbus server.)
@@ -74,7 +106,7 @@ public abstract class EventBusAbstractClient
 	 * @param message - The relevant message.
 	 * 
 	 */
-	public void sendMessage(String serverName, HttpMethod requestMethod,EventBusMessage message) {
+	public void sendMessage(String serverName, HttpMethod requestMethod,EventBusMessage message) throws Exception{
 		WorkerExecutor executor = vertx.createSharedWorkerExecutor("NETWORKING_SEND_MESSAGE_"+message.getMessageID());
 		executor.executeBlocking(future ->{
 			try {
@@ -93,14 +125,13 @@ public abstract class EventBusAbstractClient
 			}
 		}, result ->{
 			if(result.succeeded()) {
-				logger.info("Message "+message.getMessageID()+" sent successfully");
+				EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()+" sent to: "+serverName, LOG_LEVEL);
 			}else {
-				if(EventBusMessageUtils.isAwaitingResponse(message.getMessageID())) {
-					EventBusMessageUtils.getMessageHandler(message.getMessageID())
-													.handle(Future.failedFuture(result.cause()));
-				}else {
-					logger.error(message.getMessageID()+" was not sent due to: "+result.cause().getMessage());
+				if(isAwaitingResponse(message.getMessageID())) {
+					removeAwaitingResponseMessage(message.getMessageID());
 				}
+				EventBusLogger.ERROR(getClass(), result.cause(), LOG_LEVEL);
+				throw new UncheckedIOException(new IOException(result.cause()));
 			}
 		});
 	}
@@ -109,18 +140,12 @@ public abstract class EventBusAbstractClient
 	 * @param targetAddress - server's address.
 	 * Sends a connect request to a different verticle.
 	 */
-	public void connectToServer(String targetAddress) {
-		EventBusMessage message = new EventBusMessage(this.clientName,"connect",null);
+	public void connectToServer(String targetAddress) throws Exception{
+		EventBusMessage message = EventBusMessageUtils.connectMessage(this.clientName);
 		sendMessage(targetAddress, HttpMethod.CONNECT, message);
 	}
 	
-	/**
-	 * Connects to the Event Bus main router, a verticle that gathers all info
-	 * on other verticles running on the same server.
-	 */
-	public void connectToEventBus() {
-		sendMessage("EVENT_BUS_ROUTER",HttpMethod.POST,new EventBusMessage(clientName,"connect",null));
-	}
+	
 	
 	
 	/**
@@ -135,31 +160,73 @@ public abstract class EventBusAbstractClient
 	
 	@Override
 	public void onNewClient(String serverName) {
-		Map<String,Map<HttpMethod,String>> clients = MembersManager.getAllRegistrations();
-		JsonArray jsonArray = new JsonArray();
-		for(String client : clients.keySet()) {
-			if(!client.equals(serverName)) {
-				Set<String> addresses = new HashSet<>();
-				JsonObject data = new JsonObject();
-				addresses.addAll(clients.get(client).values());
-				data.put(client, new ArrayList<>(addresses));
-				jsonArray.add(data);
-			}
-		}
-		
+		try {
+		Set<String> clients = MembersManager.getAllRegistrations().keySet();
+		JsonArray jsonArray = new JsonArray(new ArrayList<>(clients));
+		EventBusLogger.INFO(getClass(), "Send connect request to: "+serverName, LOG_LEVEL);
 		sendMessage(serverName, HttpMethod.CONNECT, new EventBusMessage(MembersManager.getDefaultName(), 
-				"connect", new JsonObject().put("members", jsonArray)));
+					"connectResponse", new JsonObject().put("members", jsonArray)));
+		}catch (Exception e) {
+			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+		}
 		
 	}
 	
 	@Override
 	public void onMessageFailed(EventBusMessage errorMessage,Future<Object> future) {
-		
+		try {
+			String messageID = errorMessage.getMessageID();
+			if(isAwaitingResponse(messageID)) {
+				sendResponse(errorMessage);
+				EventBusLogger.INFO(getClass(), "Response to message: "+errorMessage.getMessageID()
+				+" sent as error message", LOG_LEVEL);
+			}else {
+				EventBusLogger.ERROR(getClass(), (Throwable) errorMessage.getData().getValue("error")
+						,"Messag Failed with no response hadnler", LOG_LEVEL);
+			}
+		}catch (Exception e) {
+			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+			future.fail(e);
+		}
 	}
 
 	@Override
 	public void onMessageSucceeded(EventBusMessage message,Future<Object> future) {
-		
+		try {
+			if(isAwaitingResponse(message.getMessageID())) {
+				sendResponse(message);
+				EventBusLogger.INFO(getClass(), 
+						"Success response message to message: "+message.getMessageID(),LOG_LEVEL);
+			}else {
+				EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()
+				+" succedded with no response handlers", LOG_LEVEL);
+			}
+		}catch (Exception e) {
+			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+			future.fail(e);
+		}
+	}
+	
+	private void sendResponse(EventBusMessage message) throws Exception {
+		sendMessage(message.getSender(), HttpMethod.OTHER, message);
+	}
+
+	public void addAwaitingResponseMessage(String messageID, EventBusMessage resultHandler) {
+		awatingResponseMessages.put(messageID, resultHandler);
+	}
+	
+	public void removeAwaitingResponseMessage(String messageID) {awatingResponseMessages.remove(messageID);}
+	
+	public EventBusMessage getAwaitingResponseMessage(String messageID){
+		return awatingResponseMessages.get(messageID);
+	}
+
+	public boolean isAwaitingResponse(String messageID) {
+		return awatingResponseMessages.containsKey(messageID);
+	}
+
+	public void cancelSubscribeTimer() {
+		vertx.cancelTimer(connectTimerID.get());
 	}
 	
 }

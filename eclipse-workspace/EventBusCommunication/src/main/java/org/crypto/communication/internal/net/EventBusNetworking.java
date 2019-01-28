@@ -1,16 +1,26 @@
 package org.crypto.communication.internal.net;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.crypto.communication.internal.client.ClientImpl;
 import org.crypto.communication.internal.client.EventBusAbstractClient;
+import org.crypto.communication.internal.log.EventBusLogger;
 import org.crypto.communication.internal.messages.EventBusMessage;
 import org.crypto.communication.internal.router.EventBusAbstractRouter;
 import org.crypto.communication.internal.router.IEventBusRouter;
 import org.crypto.communication.internal.server.EventBusAbstractServer;
 import org.crypto.communication.internal.server.ServerImpl;
+import org.crypto.communication.internal.utils.EventBusMessageUtils;
 
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.WorkerExecutor;
+import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -30,7 +40,7 @@ import io.vertx.core.json.JsonObject;
 	
  */
 public class EventBusNetworking{
-	private EventBusAbstractRouter router;
+	private static final Level LOG_LEVEL = Level.SEVERE;
 	private static Vertx vertx;
 	private static EventBusNetworking INSTANCE;
 	private static EventBusAbstractClient eventBusClientImpl;
@@ -51,7 +61,8 @@ public class EventBusNetworking{
 		if(eventBusServerImpl == null) {
 			eventBusServerImpl = new ServerImpl(vertx);
 		}
-		this.router = IEventBusRouter.create();
+		EventBusLogger.createLogger(getClass(),LOG_LEVEL);
+	
 	}
 	
 	/**
@@ -82,6 +93,7 @@ public class EventBusNetworking{
 		if(INSTANCE == null) {
 			INSTANCE = new EventBusNetworking();
 		}
+		EventBusLogger.INFO(EventBusNetworking.class, "Client & Server replaced", LOG_LEVEL);
 		return INSTANCE;
 	}
 
@@ -98,8 +110,10 @@ public class EventBusNetworking{
 	 * 
 	 * sends a message trough the event bus client to the event bus for the registered consumer.
 	 */
-	public void sendMessage(String targetAddress,HttpMethod requestMethod,EventBusMessage message) {
+	public void sendMessage(String targetAddress,HttpMethod requestMethod,EventBusMessage message) throws Exception{
 		eventBusClientImpl.sendMessage(targetAddress, requestMethod, message);
+		EventBusLogger.INFO(EventBusNetworking.class, "Message ID: "+message.getMessageID()+" sent to: "
+				+targetAddress, LOG_LEVEL);
 	}
 	
 	/**
@@ -112,11 +126,17 @@ public class EventBusNetworking{
 	 */
 	public void sendMessageWithResponse(String targetAddress,HttpMethod requestMethod,EventBusMessage message
 											,Handler<AsyncResult<JsonObject>> resultHandler) {
-		eventBusClientImpl.sendMessageWithResponse(targetAddress, requestMethod, message, resultHandler);
+		try {
+			eventBusServerImpl.addMessageResponseHandler(message.getMessageID(), resultHandler);
+			EventBusLogger.INFO(EventBusNetworking.class, 
+					"Response listener registered for message: "+message.getMessageID(), LOG_LEVEL);
+			eventBusClientImpl.sendMessage(targetAddress, requestMethod, message);
+		}catch (Exception e) {
+			eventBusServerImpl.removeMessageResponseHandler(message.getMessageID());
+			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+			resultHandler.handle(Future.failedFuture(e));
+		}
 	}
-	
-	
-	
 	
 	/**
 	 * 
@@ -126,14 +146,25 @@ public class EventBusNetworking{
 	 * 
 	 * sends the same message trough the event bus client to the event bus for the registered consumers.
 	 */
-	public void sendMultipleMessages(JsonArray addresses, HttpMethod requestMethod, EventBusMessage message) {
+	public void sendMultipleMessages(JsonArray addresses, HttpMethod requestMethod, EventBusMessage message) throws Exception{
 		addresses.forEach( address -> {
-			eventBusClientImpl.sendMessage((String)address, requestMethod, message);
+			try {
+				eventBusClientImpl.sendMessage((String)address, requestMethod, message);
+			}catch (Exception e) {
+				EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+				throw new UncheckedIOException(new IOException(e));
+			}
 		});
 	}
 	
 	//Returns the router instance.
 	public IEventBusRouter getRouter() {
-		return this.router;
+		return this.eventBusServerImpl.getRouter();
 	}
+
+	public void markAsConnected() {
+		eventBusClientImpl.cancelSubscribeTimer();
+		EventBusLogger.INFO(getClass(), "Connected to event bus router", LOG_LEVEL);
+	}
+	
 }
