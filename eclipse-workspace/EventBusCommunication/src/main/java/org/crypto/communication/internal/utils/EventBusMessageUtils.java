@@ -1,12 +1,11 @@
 package org.crypto.communication.internal.utils;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 import org.crypto.communication.internal.messages.EventBusMessage;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Handler;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 public class EventBusMessageUtils {
@@ -28,11 +27,19 @@ public class EventBusMessageUtils {
 	}
 
 	public static EventBusMessage connectMessage(String sender) {
-		// TODO Auto-generated method stub
-		return new EventBusMessage(sender,"connect",new JsonObject());
+		JsonArray methods = new JsonArray()
+				.add(HttpMethod.CONNECT).add(HttpMethod.POST).add(HttpMethod.GET)
+				.add(HttpMethod.PUT).add(HttpMethod.DELETE).add(HttpMethod.OTHER);
+		return new EventBusMessage(sender,"connect",new JsonObject().put("methods", methods));
 	}
 	
-	
+	public static JsonObject createJson(List<String>keys,List<Object>values) {
+		JsonObject jsonObject = new JsonObject();
+		for(int i=0; i<keys.size(); i++) {
+			jsonObject.put(keys.get(i), values.get(i));
+		}
+		return jsonObject;
+	}
 	
 	
 }

@@ -47,7 +47,7 @@ public abstract class EventBusAbstractClient
 	private static final Level LOG_LEVEL = Level.SEVERE;
 	private EventBus eventBus;
 	private Vertx vertx;
-	private String clientName;
+	protected String clientName;
 	private AtomicLong connectTimerID;
 	//Designated for the serverIMPL for saving awaiting response messages - Should be used by the receiving server client.
 	private Map<String,EventBusMessage> awatingResponseMessages;
@@ -60,9 +60,10 @@ public abstract class EventBusAbstractClient
 		this.clientName = clientName;
 		this.awatingResponseMessages  = new HashMap<>();
 		NotificationService.addNewClientObservers(this);
-		EventBusLogger.createLogger(getClass(), LOG_LEVEL);
+		EventBusLogger.createLogger(getClass(), LOG_LEVEL,vertx);
 		//Connecting first to the event bus verticle instance in order to get managed connection list.
 		sendConnectRequest();
+		
 	}
 	
 	/**
@@ -159,13 +160,10 @@ public abstract class EventBusAbstractClient
 	}
 	
 	@Override
-	public void onNewClient(String serverName) {
+	public void onNewClient(String serverName,Future<Object> future) {
 		try {
-		Set<String> clients = MembersManager.getAllRegistrations().keySet();
-		JsonArray jsonArray = new JsonArray(new ArrayList<>(clients));
-		EventBusLogger.INFO(getClass(), "Send connect request to: "+serverName, LOG_LEVEL);
-		sendMessage(serverName, HttpMethod.CONNECT, new EventBusMessage(MembersManager.getDefaultName(), 
-					"connectResponse", new JsonObject().put("members", jsonArray)));
+			EventBusMessage connectResponse = new EventBusMessage(clientName,"connectResponse",new JsonObject());
+			sendMessage(serverName, HttpMethod.OTHER, connectResponse);
 		}catch (Exception e) {
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
 		}

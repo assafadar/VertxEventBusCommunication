@@ -2,15 +2,12 @@ package org.crypto.communication.internal.notifications;
 
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.logging.Level;
+import org.crypto.communication.internal.log.EventBusLogger;
 import org.crypto.communication.internal.messages.EventBusMessage;
 import org.crypto.communication.internal.utils.StringUtils;
-
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.WorkerExecutor;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
@@ -81,7 +78,17 @@ public class NotificationService {
 		});
 	}
 	
-	public static void sendNewClientNotification(String serverName) {
-		
+	public static void sendNewClientNotification(String serverName, Vertx vertx) {
+		newClientsObservers.forEach(observer -> {
+			WorkerExecutor executor = 
+					vertx.createSharedWorkerExecutor("NEW_CLIENT_NOTIF_"+observer.getClass().getSimpleName());
+			executor.executeBlocking(future -> {
+				observer.onNewClient(serverName,future);
+			}, resultHandler -> {
+				if(resultHandler.succeeded()) {
+					EventBusLogger.INFO(observer.getClass(), "New client added", Level.SEVERE);
+				}
+			});
+		});
 	}
 }

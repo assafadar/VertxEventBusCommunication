@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 
 import org.crypto.communication.internal.client.ClientImpl;
 import org.crypto.communication.internal.client.EventBusAbstractClient;
+import org.crypto.communication.internal.client.EventBusClient;
 import org.crypto.communication.internal.log.EventBusLogger;
 import org.crypto.communication.internal.messages.EventBusMessage;
 import org.crypto.communication.internal.router.EventBusAbstractRouter;
@@ -14,6 +15,7 @@ import org.crypto.communication.internal.router.IEventBusRouter;
 import org.crypto.communication.internal.server.EventBusAbstractServer;
 import org.crypto.communication.internal.server.ServerImpl;
 import org.crypto.communication.internal.utils.EventBusMessageUtils;
+import org.crypto.communication.internal.verticle.IEventBusUser;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -50,18 +52,14 @@ public class EventBusNetworking{
 	/**
 	 * Event bus networking instantiation
 	 */
-	private EventBusNetworking() {
+	private EventBusNetworking(String verticleName) {
 		if(vertx == null) {
 			throw new IllegalArgumentException("Vertx instance is needed");
 		}
-		if(eventBusClientImpl == null ) {
-			eventBusClientImpl = new ClientImpl(vertx);
-		}
-		
-		if(eventBusServerImpl == null) {
-			eventBusServerImpl = new ServerImpl(vertx);
-		}
-		EventBusLogger.createLogger(getClass(),LOG_LEVEL);
+		eventBusServerImpl = new ServerImpl(verticleName,vertx);
+		eventBusClientImpl = (verticleName == null || verticleName.equals("") )? 
+				new EventBusClient(vertx) : new ClientImpl(verticleName,vertx);
+		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx);
 	
 	}
 	
@@ -70,9 +68,9 @@ public class EventBusNetworking{
 	 * @param vertx
 	 * sets vertx instance and returns networking instance.
 	 */
-	public static EventBusNetworking init(Vertx vertx,EventBusAbstractClient client, EventBusAbstractServer server) {
+	public static EventBusNetworking init(Vertx vertx,IEventBusUser verticle) {
 		EventBusNetworking.vertx = vertx;
-		return getNetworking(client,server);
+		return getNetworking((verticle == null)?null:verticle.verticleName());
 	}
 	
 	/**
@@ -82,17 +80,16 @@ public class EventBusNetworking{
 	 */
 	public static EventBusNetworking getNetworking() {
 		if(INSTANCE == null) {
-			INSTANCE = new EventBusNetworking();
+			throw new IllegalStateException("Please call INIT method first");
 		}
 		return INSTANCE;
 	}
 	
-	private static EventBusNetworking getNetworking(EventBusAbstractClient client, EventBusAbstractServer server) {
-		eventBusClientImpl = client;
-		eventBusServerImpl = server;
+	private static EventBusNetworking getNetworking(String verticleName) {
 		if(INSTANCE == null) {
-			INSTANCE = new EventBusNetworking();
+			INSTANCE = new EventBusNetworking(verticleName);
 		}
+		
 		EventBusLogger.INFO(EventBusNetworking.class, "Client & Server replaced", LOG_LEVEL);
 		return INSTANCE;
 	}

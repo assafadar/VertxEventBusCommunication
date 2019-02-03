@@ -1,8 +1,6 @@
 package org.crypto.communication.internal.server;
 
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +25,6 @@ import io.vertx.core.WorkerExecutor;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.impl.FutureFactoryImpl;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -44,7 +41,8 @@ public abstract class EventBusAbstractServer{
 	
 	public EventBusAbstractServer(Vertx vertx, String serverName){
 		super();
-		EventBusLogger.createLogger(getClass(), LOG_LEVEL);
+		MembersManager.init();
+		EventBusLogger.createLogger(getClass(), LOG_LEVEL,vertx);
 		this.vertx = vertx;
 		this.eventBus = vertx.eventBus();
 		this.serverName = serverName;
@@ -60,7 +58,8 @@ public abstract class EventBusAbstractServer{
 		try {
 			this.router.connect("connect", this::addEventBusMember);
 			this.router.connect("disconnect", this::removeEventBusMember);
-			this.router.responseHandler("connectResponse", this::subscribeToMembers);
+			this.router.responseHandler("connectToAll", this::subscribeToMembers);
+			this.router.responseHandler("connectResponse", this::gotConnectResponse);
 			EventBusLogger.INFO(getClass(), "Mandatory handlers registered successfully", LOG_LEVEL);
 		}catch (Exception e) {
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
@@ -70,34 +69,40 @@ public abstract class EventBusAbstractServer{
 	//Register consumers for all HTTP methods.
 	protected void registerConsumers() {
 		try {
-			this.eventBus.registerCodec(new EventBusMessageCodec()); 
+//			this.eventBus.registerCodec(new EventBusMessageCodec()); 
+			this.eventBus.registerDefaultCodec(EventBusMessage.class, new EventBusMessageCodec());
+			MessageConsumer<EventBusMessage> connectConsumer = this.eventBus.consumer(serverName+HttpMethod.CONNECT,
+					msg ->{
+						EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
+						WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_CONNECT_MESSAGE_"+((EventBusMessage)msg.body()).getMessageID());
+						executor.executeBlocking(future -> {
+							try {
+								readConnectMessage(message, future);
+							}catch (Exception e) {
+								future.fail(e);
+							}finally {
+								executor.close();
+							}
+						}, resultHandler -> {
+							if(resultHandler.succeeded()) {
+								message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
+								NotificationService.sendMessageSuccessNotification(message, vertx);
+							}else {
+								message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
+								NotificationService.sendMessageFailedNotfication(message, vertx);
+							}
+						});
+					});
+			addConsumer(HttpMethod.CONNECT, connectConsumer);
+				
 			
-			createConsumer(HttpMethod.CONNECT, this.getClass().getMethod("readConnectMessage"));
-			createConsumer(HttpMethod.POST, this.getClass().getMethod("readPostMessage"));
-			createConsumer(HttpMethod.GET, this.getClass().getMethod("readGetMessage"));
-			createConsumer(HttpMethod.PUT, this.getClass().getMethod("readPutMessage"));
-			createConsumer(HttpMethod.DELETE, this.getClass().getMethod("readDeleteMessage"));
-			createConsumer(HttpMethod.OTHER, this.getClass().getMethod("readMessageResponse"));
-			EventBusLogger.INFO(getClass(), "Consumers registered successfully", LOG_LEVEL);
-		}catch (Exception e) {
-			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
-			System.exit(500);
-		}
-		
-	}
-	//Creating a message consumer and invoking the relevant consumer in case of a message event.
-	private void createConsumer(HttpMethod method,Method handlerMethod) throws Exception{
-		
-			MessageConsumer<EventBusMessage> consumer  = this.eventBus.consumer(serverName+method.name(),msg ->{
-				//Launching new WorkerExecutor here is intended to clear the messages queue to a message handler executor 
-				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_MESSAGE_"+msg.body().getMessageID());
-				EventBusMessage message = msg.body();
+			addConsumer(HttpMethod.POST, this.eventBus.consumer(serverName+HttpMethod.POST.name(), msg ->{
+				EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
+				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_POST_MESSAGE_"+((EventBusMessage)msg.body()).getMessageID());
 				executor.executeBlocking(future -> {
 					try {
-						EventBusLogger.INFO(getClass(), "New Incoming message", LOG_LEVEL);
-						handlerMethod.invoke(this, (EventBusMessage) msg.body(),future);
+						readPostMessage(message, future);
 					}catch (Exception e) {
-						EventBusLogger.ERROR(getClass(), e,"Consumer invocation failed: "+e.getMessage(),LOG_LEVEL);
 						future.fail(e);
 					}finally {
 						executor.close();
@@ -110,6 +115,125 @@ public abstract class EventBusAbstractServer{
 						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 						NotificationService.sendMessageFailedNotfication(message, vertx);
 					}
+				});
+			}));
+			
+			
+			addConsumer(HttpMethod.GET, this.eventBus.consumer(serverName+HttpMethod.GET.name(), msg ->{
+				EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
+				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_GET_MESSAGE_"+((EventBusMessage)msg.body()).getMessageID());
+				executor.executeBlocking(future -> {
+					try {
+						readGetMessage(message, future);
+					}catch (Exception e) {
+						future.fail(e);
+					}finally {
+						executor.close();
+					}
+				}, resultHandler -> {
+					if(resultHandler.succeeded()) {
+						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
+						NotificationService.sendMessageSuccessNotification(message, vertx);
+					}else {
+						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
+						NotificationService.sendMessageFailedNotfication(message, vertx);
+					}
+				});
+			}));
+			
+			addConsumer(HttpMethod.PUT, this.eventBus.consumer(serverName+HttpMethod.PUT.name(), msg ->{
+				EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
+				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_PUT_MESSAGE_"+((EventBusMessage)msg.body()).getMessageID());
+				executor.executeBlocking(future -> {
+					try {
+						readPutMessage(message, future);
+					}catch (Exception e) {
+						future.fail(e);
+					}finally {
+						executor.close();
+					}
+				}, resultHandler -> {
+					if(resultHandler.succeeded()) {
+						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
+						NotificationService.sendMessageSuccessNotification(message, vertx);
+					}else {
+						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
+						NotificationService.sendMessageFailedNotfication(message, vertx);
+					}
+				});
+			}));
+			
+			addConsumer(HttpMethod.DELETE, this.eventBus.consumer(serverName+HttpMethod.DELETE.name(), msg ->{
+				EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
+				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_DELETE_MESSAGE_"+((EventBusMessage)msg.body()).getMessageID());
+				executor.executeBlocking(future -> {
+					try {
+						readDeleteMessage(message, future);
+					}catch (Exception e) {
+						future.fail(e);
+					}finally {
+						executor.close();
+					}
+				}, resultHandler -> {
+					if(resultHandler.succeeded()) {
+						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
+						NotificationService.sendMessageSuccessNotification(message, vertx);
+					}else {
+						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
+						NotificationService.sendMessageFailedNotfication(message, vertx);
+					}
+				});
+			}));
+			
+			addConsumer(HttpMethod.OTHER, this.eventBus.consumer(serverName+HttpMethod.OTHER.name(), msg ->{
+				EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
+				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_MESSGE_RESPONSE_"+((EventBusMessage)msg.body()).getMessageID());
+				executor.executeBlocking(future -> {
+					try {
+						readMessageResponse(message, future);
+					}catch (Exception e) {
+						future.fail(e);
+					}finally {
+						executor.close();
+					}
+				}, resultHandler -> {
+					if(resultHandler.succeeded()) {
+						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
+						NotificationService.sendMessageSuccessNotification(message, vertx);
+					}else {
+						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
+						NotificationService.sendMessageFailedNotfication(message, vertx);
+					}
+				});
+			}));
+			
+			EventBusLogger.INFO(getClass(), "Consumers registered successfully", LOG_LEVEL);
+		}catch (Exception e) {
+			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+			System.exit(500);
+		}
+		
+	}
+	//Creating a message consumer and invoking the relevant consumer in case of a message event.
+	private void createConsumer(HttpMethod method,Method handlerMethod) throws Exception{
+			//Allowing access to private method trough reflection.
+			handlerMethod.setAccessible(true);
+			MessageConsumer<EventBusMessage> consumer  = this.eventBus.consumer(serverName+method.name(),msg ->{
+				//Launching new WorkerExecutor here is intended to clear the messages queue to a message handler executor 
+				WorkerExecutor executor = vertx.createSharedWorkerExecutor("INCOMING_MESSAGE_"+msg.body().getMessageID());
+				EventBusMessage message = msg.body();
+				executor.executeBlocking(future -> {
+					try {
+						EventBusLogger.INFO(getClass(), "New Incoming message: "+message.getMessageID(), LOG_LEVEL);
+						handlerMethod.invoke(this, (EventBusMessage) msg.body(),future);
+					}catch (Exception e) {
+						EventBusLogger.ERROR(getClass(), e,"Consumer invocation failed: "+e.getMessage(),LOG_LEVEL);
+						future.fail(e);
+					}finally {
+						executor.close();
+					}
+				}, resultHandler -> {
+					
 				});
 			});
 			addConsumer(method, consumer);
@@ -156,9 +280,18 @@ public abstract class EventBusAbstractServer{
 			future.fail(e);
 		}
 	}
+	
+	public void gotConnectResponse(EventBusMessage messag, Future<Object>future) {
+		try {
+			EventBusLogger.INFO(getClass(),messag.getSender()+ " responded properly to subscribe request", LOG_LEVEL);
+			future.complete();
+		}catch (Exception e) {
+			future.fail(e);
+		}
+	}
 	public void addEventBusMember(EventBusMessage message, Future<Object> future) {
 		try {
-			MembersManager.addClient(message.getSender(),HttpMethod.CONNECT,  message.getData());
+			MembersManager.addClient(message.getSender(),  message.getData(),vertx);
 			future.complete();
 		}catch (Exception e) {
 			future.fail(e);

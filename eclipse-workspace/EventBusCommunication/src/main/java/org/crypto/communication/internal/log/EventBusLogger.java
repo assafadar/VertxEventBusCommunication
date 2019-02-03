@@ -8,28 +8,31 @@ import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import io.vertx.core.Vertx;
+
 
 public class EventBusLogger {
 	private static Map<Class<? extends Object>,Logger> loggers = new HashMap<Class<? extends Object>, Logger>();
 	
-	public static void createLogger(Class<? extends Object> clzz, String logFilePath, Level logLevel) {
+	public static void createLogger(Class<? extends Object> clzz, String logFilePath, Level logLevel,Vertx vertx) {
 		if(!loggers.containsKey(clzz)) {
-			initializeLogger(clzz, logFilePath,logLevel);
+			initializeLogger(clzz, logFilePath,logLevel,vertx.getOrCreateContext().deploymentID());
 		}
 		
 	}
-	public static void createLogger(Class<? extends Object> clzz, Level logLevel) {
+	public static void createLogger(Class<? extends Object> clzz, Level logLevel,Vertx vertx) {
 		if(!loggers.containsKey(clzz)) {
-			initializeLogger(clzz, "",logLevel);
+			initializeLogger(clzz, "",logLevel,vertx.getOrCreateContext().deploymentID());
 		}
 	}
 	
-	private static void initializeLogger(Class<? extends Object> clzz, String logFilePath, Level logLevel) {
+	private static void initializeLogger(Class<? extends Object> clzz, String logFilePath, Level logLevel,String verticleName) {
 		Logger logger = Logger.getLogger(clzz.getSimpleName());
 		FileHandler fileHandler;
 		try {
 			fileHandler = new FileHandler(logFilePath+clzz+".log",true);
 			fileHandler.setFormatter(new SimpleFormatter());
+			fileHandler.flush();
 			logger.addHandler(fileHandler);
 			logger.setLevel(logLevel);
 		}catch (Exception e) {
