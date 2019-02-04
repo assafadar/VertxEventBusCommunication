@@ -3,6 +3,7 @@ package org.crypto.communication.internal.client;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.security.acl.NotOwnerException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,6 +61,8 @@ public abstract class EventBusAbstractClient
 		this.clientName = clientName;
 		this.awatingResponseMessages  = new HashMap<>();
 		NotificationService.addNewClientObservers(this);
+		NotificationService.addMessageSuccessObservers(this);
+		NotificationService.addMessageFailedObservers(this);
 		EventBusLogger.createLogger(getClass(), LOG_LEVEL,vertx);
 		//Connecting first to the event bus verticle instance in order to get managed connection list.
 		sendConnectRequest();
@@ -82,6 +85,13 @@ public abstract class EventBusAbstractClient
 					EventBusLogger.ERROR(getClass(), e,"Failed sending connect message to event bus router", LOG_LEVEL);
 				}
 			}));
+			
+//			try {
+//				sendMessage(MembersManager.getDefaultName(), HttpMethod.CONNECT, connectMessage);
+//				EventBusLogger.INFO(getClass(), "Sent subscribe request to event bus router", LOG_LEVEL);
+//			}catch (Exception e) {
+//				EventBusLogger.ERROR(getClass(), e,"Failed sending connect message to event bus router", LOG_LEVEL);
+//			}
 		}else {
 			EventBusLogger.INFO(getClass(), "Event bus router initialized client", LOG_LEVEL);
 		}

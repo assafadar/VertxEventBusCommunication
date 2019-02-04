@@ -33,8 +33,9 @@ public class EventBusMessage {
 	
 	public EventBusMessage(EventBusMessage eventBusMessage) {
 		this.sender = eventBusMessage.sender;
-		this.path = path;
+		this.path = eventBusMessage.path;
 		this.data = eventBusMessage.data;
+		this.messageID = eventBusMessage.messageID;
 	}
 
 	public String getSender() {

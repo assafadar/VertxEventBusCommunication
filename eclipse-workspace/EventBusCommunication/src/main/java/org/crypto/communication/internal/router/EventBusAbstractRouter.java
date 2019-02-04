@@ -68,7 +68,11 @@ public abstract class EventBusAbstractRouter implements IEventBusRouter {
 
 	
 	public IEventBusHandler<EventBusMessage> getHandler(HttpMethod httpMethod,String path){
-		return this.getHandlers(httpMethod).get(path);
+		IEventBusHandler<EventBusMessage> handler = this.getHandlers(httpMethod).get(path); 
+		if(handler == null) {
+			throw new IllegalStateException("No handler registered for this specific path: "+path);
+		}
+		return handler;
 	}
 
 	

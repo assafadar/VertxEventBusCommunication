@@ -10,6 +10,7 @@ public class EventBusRouterImpl extends EventBusAbstractRouter {
 	
 	@Override
 	public void get(String path, IEventBusHandler<EventBusMessage> handler) {
+		System.out.println("Get handler for: "+path);
 		addGetHandler(path, handler);
 	}
 

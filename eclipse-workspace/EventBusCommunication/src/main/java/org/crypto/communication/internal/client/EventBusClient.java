@@ -18,7 +18,12 @@ public class EventBusClient extends EventBusAbstractClient {
 	@Override
 	public void onNewClient(String serverName,Future<Object> future) {
 		try {
-			JsonArray members = MembersManager.getAllClients();
+			JsonArray members = MembersManager.getAllClients().copy();
+			for(int i=0; i<members.size(); i++) {
+				if(members.getString(i).equals(serverName)) {
+					members.remove(i);
+				}
+			}
 			EventBusMessage message = new EventBusMessage(clientName,"connectToAll",new JsonObject().put("members", members));
 			sendMessage(serverName, HttpMethod.CONNECT, message);
 			future.complete();

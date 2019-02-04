@@ -29,6 +29,8 @@ public class MembersManager {
 	private static void registerDefaultClient() {
 		eventBusClients.put(getDefaultName(), new HashMap<>());
 		eventBusClients.get(getDefaultName()).put(HttpMethod.CONNECT, getDefaultName()+HttpMethod.CONNECT);
+		eventBusClients.get(getDefaultName()).put(HttpMethod.GET, getDefaultName()+HttpMethod.GET);
+		
 	}
 
 
@@ -51,7 +53,12 @@ public class MembersManager {
 	}
 	
 	public static String getConsumberAddress(String serverName, HttpMethod requestMethod) {
-		return eventBusClients.get(serverName).get(requestMethod);
+		String clientAddress = eventBusClients.get(serverName).get(requestMethod);
+		if(clientAddress == null) {
+			throw new IllegalStateException("No address Found!");
+		}else {
+			return clientAddress;	
+		}
 	}
 	
 	public static void removeClient(String serverName) {
@@ -69,6 +76,7 @@ public class MembersManager {
 	}
 	
 	public static JsonArray getAllClients(){
+		System.out.println(clientNames.toString());
 		return clientNames;
 	}
 	

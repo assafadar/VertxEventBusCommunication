@@ -15,6 +15,7 @@ import org.crypto.communication.internal.router.IEventBusRouter;
 import org.crypto.communication.internal.server.EventBusAbstractServer;
 import org.crypto.communication.internal.server.ServerImpl;
 import org.crypto.communication.internal.utils.EventBusMessageUtils;
+import org.crypto.communication.internal.utils.MembersManager;
 import org.crypto.communication.internal.verticle.IEventBusUser;
 
 import io.vertx.core.AsyncResult;
@@ -56,7 +57,7 @@ public class EventBusNetworking{
 		if(vertx == null) {
 			throw new IllegalArgumentException("Vertx instance is needed");
 		}
-		eventBusServerImpl = new ServerImpl(verticleName,vertx);
+		eventBusServerImpl = new ServerImpl((verticleName == null)?MembersManager.getDefaultName() : verticleName,vertx);
 		eventBusClientImpl = (verticleName == null || verticleName.equals("") )? 
 				new EventBusClient(vertx) : new ClientImpl(verticleName,vertx);
 		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx);
