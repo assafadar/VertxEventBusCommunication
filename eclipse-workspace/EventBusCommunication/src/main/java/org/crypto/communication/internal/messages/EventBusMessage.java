@@ -1,5 +1,7 @@
 package org.crypto.communication.internal.messages;
 
+import java.net.InetAddress;
+
 import org.crypto.communication.internal.utils.StringUtils;
 
 import io.vertx.core.json.JsonObject;

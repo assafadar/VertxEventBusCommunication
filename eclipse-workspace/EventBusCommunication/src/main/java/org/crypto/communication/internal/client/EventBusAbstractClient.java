@@ -63,7 +63,7 @@ public abstract class EventBusAbstractClient
 		NotificationService.addNewClientObservers(this);
 		NotificationService.addMessageSuccessObservers(this);
 		NotificationService.addMessageFailedObservers(this);
-		EventBusLogger.createLogger(getClass(), LOG_LEVEL,vertx);
+		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx);
 		//Connecting first to the event bus verticle instance in order to get managed connection list.
 		sendConnectRequest();
 		
@@ -86,30 +86,11 @@ public abstract class EventBusAbstractClient
 				}
 			}));
 			
-//			try {
-//				sendMessage(MembersManager.getDefaultName(), HttpMethod.CONNECT, connectMessage);
-//				EventBusLogger.INFO(getClass(), "Sent subscribe request to event bus router", LOG_LEVEL);
-//			}catch (Exception e) {
-//				EventBusLogger.ERROR(getClass(), e,"Failed sending connect message to event bus router", LOG_LEVEL);
-//			}
 		}else {
 			EventBusLogger.INFO(getClass(), "Event bus router initialized client", LOG_LEVEL);
 		}
 	}
-	/**
-	 * 
-	 * @param serverName - target (relevant target eventbus server.)
-	 * @param requestMethod - the request method (PUT,GET..)
-	 * @param message - The relevant message.
-	 * 
-	 * Saves the particular message in awatingReponse map - waiting for response.
-	 */
-//	public void sendMessageWithResponse(String serverName, HttpMethod requestMethod, EventBusMessage message) throws Exception{
-//		EventBusMessageUtils.addMessageHandler(message.getMessageID(), message);
-//		sendMessage(serverName, requestMethod, message);
-//	}
 	
-
 	/**
 	 * 
 	 * @param serverName - target (relevant target eventbus server.)
@@ -136,7 +117,8 @@ public abstract class EventBusAbstractClient
 			}
 		}, result ->{
 			if(result.succeeded()) {
-				EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()+" sent to: "+serverName, LOG_LEVEL);
+				EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()+
+						" from: "+message.getSender()+" sent to: "+serverName, LOG_LEVEL);
 			}else {
 				if(isAwaitingResponse(message.getMessageID())) {
 					removeAwaitingResponseMessage(message.getMessageID());
@@ -165,7 +147,7 @@ public abstract class EventBusAbstractClient
 	 * @param requestMethod - HTTP method
 	 * @return server specific consumer address - according to the HTTP method. (serverName + httpMethod)
 	 */
-	private String getConsumberAddress(String serverName, HttpMethod requestMethod) {
+	private String getConsumberAddress(String serverName, HttpMethod requestMethod)throws Exception {
 		return MembersManager.getConsumberAddress(serverName, requestMethod);
 	}
 	
@@ -201,14 +183,15 @@ public abstract class EventBusAbstractClient
 	@Override
 	public void onMessageSucceeded(EventBusMessage message,Future<Object> future) {
 		try {
-			if(isAwaitingResponse(message.getMessageID())) {
-				sendResponse(message);
-				EventBusLogger.INFO(getClass(), 
-						"Success response message to message: "+message.getMessageID(),LOG_LEVEL);
-			}else {
-				EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()
-				+" succedded with no response handlers", LOG_LEVEL);
-			}
+//			if(isAwaitingResponse(message.getMessageID())) {
+//				sendResponse(message);
+//				EventBusLogger.INFO(getClass(), 
+//						"Success response message to message: "+message.getMessageID(),LOG_LEVEL);
+//			}else {
+//				EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()
+//				+" succedded with no response handlers", LOG_LEVEL);
+//			}
+			sendMessage(message.getSender(), HttpMethod.OTHER, message);
 		}catch (Exception e) {
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
 			future.fail(e);

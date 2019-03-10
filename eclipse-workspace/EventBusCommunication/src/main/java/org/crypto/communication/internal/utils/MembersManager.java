@@ -19,10 +19,11 @@ public class MembersManager {
 	private static Map<String, Map<HttpMethod, String>> eventBusClients;
 	private static final String name = EventBusVerticle.class.getSimpleName();
 	private static JsonArray clientNames;
-	public static void init() {
+	public static void init(Vertx vertx) {
 		eventBusClients = new HashMap<>();
 		clientNames = new JsonArray();
 		registerDefaultClient();
+		EventBusLogger.createLogger(MembersManager.class, LOG_LEVEL, vertx);
 	}
 	
 
@@ -49,18 +50,27 @@ public class MembersManager {
 			}
 		});
 		clientNames.add(serverName);
+		EventBusLogger.INFO(MembersManager.class, serverName+" client registered consumers "+handlerMthods.toString(), 
+				LOG_LEVEL);
 		NotificationService.sendNewClientNotification(serverName,vertx);
+		System.out.println("Client added: "+serverName);
 	}
 	
-	public static String getConsumberAddress(String serverName, HttpMethod requestMethod) {
-		String clientAddress = eventBusClients.get(serverName).get(requestMethod);
-		if(clientAddress == null) {
-			throw new IllegalStateException("No address Found!");
-		}else {
-			return clientAddress;	
+	public static String getConsumberAddress(String serverName, HttpMethod requestMethod) throws Exception{
+		isAddressExists(serverName,requestMethod);
+		return eventBusClients.get(serverName).get(requestMethod);
+	}
+	
+	private static void isAddressExists(String serverName, HttpMethod requestMethod) {
+		if(!eventBusClients.containsKey(serverName)
+				|| !eventBusClients.get(serverName).containsKey(requestMethod)) {
+			EventBusLogger.ERROR(MembersManager.class, new Exception("Address does not exists"), LOG_LEVEL);
+			System.out.println("==================Address: "+serverName+requestMethod+" does not exists================================");
+			throw new IllegalStateException("Address does not exists");
 		}
 	}
-	
+
+
 	public static void removeClient(String serverName) {
 		eventBusClients.remove(serverName);
 		int i;
@@ -73,6 +83,8 @@ public class MembersManager {
 		}
 		
 		clientNames.remove(i);
+		
+		
 	}
 	
 	public static JsonArray getAllClients(){

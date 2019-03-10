@@ -53,11 +53,12 @@ public class EventBusNetworking{
 	/**
 	 * Event bus networking instantiation
 	 */
-	private EventBusNetworking(String verticleName) {
+	private EventBusNetworking(String verticleName,Future<Void> deploymentFuture) {
 		if(vertx == null) {
 			throw new IllegalArgumentException("Vertx instance is needed");
 		}
-		eventBusServerImpl = new ServerImpl((verticleName == null)?MembersManager.getDefaultName() : verticleName,vertx);
+		eventBusServerImpl = new ServerImpl((verticleName == null)?MembersManager.getDefaultName() 
+				: verticleName,vertx,deploymentFuture);
 		eventBusClientImpl = (verticleName == null || verticleName.equals("") )? 
 				new EventBusClient(vertx) : new ClientImpl(verticleName,vertx);
 		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx);
@@ -69,9 +70,9 @@ public class EventBusNetworking{
 	 * @param vertx
 	 * sets vertx instance and returns networking instance.
 	 */
-	public static EventBusNetworking init(Vertx vertx,IEventBusUser verticle) {
+	public static EventBusNetworking init(Vertx vertx,IEventBusUser verticle,Future<Void> deploymentFuture) {
 		EventBusNetworking.vertx = vertx;
-		return getNetworking((verticle == null)?null:verticle.verticleName());
+		return getNetworking((verticle == null)?null:verticle.verticleName(),deploymentFuture);
 	}
 	
 	/**
@@ -86,9 +87,9 @@ public class EventBusNetworking{
 		return INSTANCE;
 	}
 	
-	private static EventBusNetworking getNetworking(String verticleName) {
+	private static EventBusNetworking getNetworking(String verticleName,Future<Void> deploymentFuture) {
 		if(INSTANCE == null) {
-			INSTANCE = new EventBusNetworking(verticleName);
+			INSTANCE = new EventBusNetworking(verticleName,deploymentFuture);
 		}
 		
 		EventBusLogger.INFO(EventBusNetworking.class, "Client & Server replaced", LOG_LEVEL);
