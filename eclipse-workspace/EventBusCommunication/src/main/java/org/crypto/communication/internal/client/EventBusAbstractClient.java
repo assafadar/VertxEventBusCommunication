@@ -76,7 +76,7 @@ public abstract class EventBusAbstractClient
 	
 	private void sendConnectRequest() {
 		if(!clientName.equals(MembersManager.getDefaultName())) {
-			EventBusMessage connectMessage = EventBusMessageUtils.connectMessage(clientName);
+			EventBusMessage connectMessage = EventBusMessageUtils.connectMessage();
 			connectTimerID.set(vertx.setPeriodic(6000, task -> {
 				try {
 					sendMessage(MembersManager.getDefaultName(), HttpMethod.CONNECT, connectMessage);
@@ -102,6 +102,7 @@ public abstract class EventBusAbstractClient
 		WorkerExecutor executor = vertx.createSharedWorkerExecutor("NETWORKING_SEND_MESSAGE_"+message.getMessageID());
 		executor.executeBlocking(future ->{
 			try {
+				message.setSender(this.clientName);
 				String consumerAddress = getConsumberAddress(serverName,requestMethod);
 				this.eventBus.send(consumerAddress, message,res ->{
 					if(res.succeeded()) {
@@ -134,7 +135,7 @@ public abstract class EventBusAbstractClient
 	 * Sends a connect request to a different verticle.
 	 */
 	public void connectToServer(String targetAddress) throws Exception{
-		EventBusMessage message = EventBusMessageUtils.connectMessage(this.clientName);
+		EventBusMessage message = EventBusMessageUtils.connectMessage();
 		sendMessage(targetAddress, HttpMethod.CONNECT, message);
 	}
 	
@@ -154,12 +155,11 @@ public abstract class EventBusAbstractClient
 	@Override
 	public void onNewClient(String serverName,Future<Object> future) {
 		try {
-			EventBusMessage connectResponse = new EventBusMessage(clientName,"connectResponse",new JsonObject());
+			EventBusMessage connectResponse = new EventBusMessage("connectResponse",new JsonObject());
 			sendMessage(serverName, HttpMethod.OTHER, connectResponse);
 		}catch (Exception e) {
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
 		}
-		
 	}
 	
 	@Override

@@ -279,7 +279,7 @@ public abstract class EventBusAbstractServer{
 				MembersManager.addClient(members.getString(i), methods, vertx);
 			}
 			if(members.size()>0) {
-				EventBusMessage connectMessage = EventBusMessageUtils.connectMessage(serverName); 
+				EventBusMessage connectMessage = EventBusMessageUtils.connectMessage(); 
 				EventBusNetworking.getNetworking().sendMultipleMessages(members, HttpMethod.CONNECT, connectMessage);
 			}
 			EventBusNetworking.getNetworking().markAsConnected();
@@ -308,7 +308,7 @@ public abstract class EventBusAbstractServer{
 	}
 	
 	protected void close() {
-		EventBusMessage message = new EventBusMessage(serverName,"disconnect",null);
+		EventBusMessage message = new EventBusMessage("disconnect",null);
 		JsonArray jsonArray = MembersManager.getAllClients();
 		
 		try {

@@ -24,7 +24,7 @@ public class EventBusClient extends EventBusAbstractClient {
 					members.remove(i);
 				}
 			}
-			EventBusMessage message = new EventBusMessage(clientName,"connectToAll",new JsonObject().put("members", members));
+			EventBusMessage message = new EventBusMessage("connectToAll",new JsonObject().put("members", members));
 			sendMessage(serverName, HttpMethod.CONNECT, message);
 			future.complete();
 		}catch (Exception e) {

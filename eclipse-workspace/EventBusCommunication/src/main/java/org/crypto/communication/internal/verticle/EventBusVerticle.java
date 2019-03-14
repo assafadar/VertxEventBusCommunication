@@ -42,8 +42,8 @@ public class EventBusVerticle extends AbstractVerticle implements IEventBusUser 
 		}catch (Exception e) {
 			// TODO: handle exception
 		}
-		
-		HazelcastClusterManager clusterManager = new HazelcastClusterManager(clusterConfing);
+		HazelcastClusterManager clusterManager = 
+				new HazelcastClusterManager(clusterConfing);
 		
 		vertxOptions.setClusterManager(clusterManager);
 		Vertx.clusteredVertx(vertxOptions, res -> {

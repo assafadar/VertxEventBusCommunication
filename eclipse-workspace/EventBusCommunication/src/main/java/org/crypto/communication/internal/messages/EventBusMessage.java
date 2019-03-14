@@ -17,9 +17,8 @@ public class EventBusMessage {
 	private JsonObject data;
 	private String path;
 	
-	public EventBusMessage(String sender, String path, JsonObject data) {
+	public EventBusMessage(String path, JsonObject data) {
 		super();
-		this.sender = sender;
 		this.path = path;
 		this.data = data;
 		this.messageID = StringUtils.getRandomUUID(path);

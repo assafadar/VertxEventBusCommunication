@@ -6,10 +6,12 @@ import io.vertx.core.Vertx;
 public class VertxDeployment {
 	private AbstractVerticle abstractVerticle;
     private Vertx vertx;
+    private String groupName;
 	
     public VertxDeployment(AbstractVerticle abstractVerticle) {
 		super();
 		this.abstractVerticle = abstractVerticle;
+		
 	}
     
     public void deploy(Vertx vertx) {

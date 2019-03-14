@@ -26,11 +26,11 @@ public class EventBusMessageUtils {
 		return true;
 	}
 
-	public static EventBusMessage connectMessage(String sender) {
+	public static EventBusMessage connectMessage() {
 		JsonArray methods = new JsonArray()
 				.add(HttpMethod.CONNECT).add(HttpMethod.POST).add(HttpMethod.GET)
 				.add(HttpMethod.PUT).add(HttpMethod.DELETE).add(HttpMethod.OTHER);
-		return new EventBusMessage(sender,"connect",new JsonObject().put("methods", methods));
+		return new EventBusMessage("connect",new JsonObject().put("methods", methods));
 	}
 	
 	public static JsonObject createJson(List<String>keys,List<Object>values) {

@@ -4,5 +4,4 @@ import io.vertx.core.Future;
 
 public interface IEventBusHandler<E> {
 	void handle(E event, Future<Object> future);
-	
 }
