@@ -253,14 +253,14 @@ public abstract class EventBusAbstractServer{
 		EventBusNetworking.getNetworking().sendMultipleMessages(addresses, method, message);
 	}
 	
-	public void removeEventBusMember(EventBusMessage message, Future<Object> future) {
+	public void removeEventBusMember(EventBusMessage message) {
 		try {
 			MembersManager.removeClient(message.getSender());
 			System.out.println(message.getSender()+" disconnected!!!!!!!");
 			EventBusLogger.INFO(getClass(), message.getSender()+" disconnected", LOG_LEVEL);
-			future.complete();
+			message.finishMessageReading();
 		}catch (Exception e) {
-			future.fail(e);
+			message.messageReadingFailed(e);
 		}
 	}
 	/**
@@ -269,7 +269,7 @@ public abstract class EventBusAbstractServer{
 	 * @param reponseMessage
 	 * @param future
 	 */
-	private void subscribeToMembers(EventBusMessage reponseMessage, Future<Object> future) {
+	private void subscribeToMembers(EventBusMessage reponseMessage) {
 		try {
 			JsonArray members = reponseMessage.getData().getJsonArray("members");
 			JsonObject methods = new JsonObject().put("methods", new JsonArray().add(HttpMethod.CONNECT)
@@ -284,26 +284,26 @@ public abstract class EventBusAbstractServer{
 			}
 			EventBusNetworking.getNetworking().markAsConnected();
 			this.deploymentFuture.complete();
-			future.complete();
+			reponseMessage.finishMessageReading();
 		}catch (Exception e) {
-			future.fail(e);
+			reponseMessage.messageReadingFailed(e);
 		}
 	}
 	
-	public void gotConnectResponse(EventBusMessage messag, Future<Object>future) {
+	public void gotConnectResponse(EventBusMessage messag) {
 		try {
 			EventBusLogger.INFO(getClass(),messag.getSender()+ " responded properly to subscribe request", LOG_LEVEL);
-			future.complete();
+			messag.finishMessageReading();
 		}catch (Exception e) {
-			future.fail(e);
+			messag.messageReadingFailed(e);
 		}
 	}
-	public void addEventBusMember(EventBusMessage message, Future<Object> future) {
+	public void addEventBusMember(EventBusMessage message) {
 		try {
 			MembersManager.addClient(message.getSender(),  message.getData(),vertx);
-			future.complete();
+			message.finishMessageReading(null);
 		}catch (Exception e) {
-			future.fail(e);
+			message.messageReadingFailed(e);
 		}
 	}
 	
@@ -373,7 +373,8 @@ public abstract class EventBusAbstractServer{
 	private void readConnectMessage(EventBusMessage message,Future<Object> future)throws Exception{
 		try {
 			IEventBusHandler<EventBusMessage> handler = getHandler(HttpMethod.CONNECT, message.getPath());
-			handler.handle(message, future);
+			message.setReadFuture(future);
+			handler.handle(message);
 		}catch (Exception e) {
 			future.fail(e);
 		}
@@ -381,7 +382,8 @@ public abstract class EventBusAbstractServer{
 	protected void readPostMessage(EventBusMessage message,Future<Object> future) {
 		try {
 			IEventBusHandler<EventBusMessage> handler = getHandler(HttpMethod.POST, message.getPath());
-			handler.handle(message,future);
+			message.setReadFuture(future);
+			handler.handle(message);
 		}catch (Exception e) {
 			future.fail(e);
 		}
@@ -390,7 +392,8 @@ public abstract class EventBusAbstractServer{
 	protected void readPutMessage(EventBusMessage message,Future<Object> future) {
 		try {
 			IEventBusHandler<EventBusMessage> handler = getHandler(HttpMethod.PUT, message.getPath());
-			handler.handle(message,future);
+			message.setReadFuture(future);
+			handler.handle(message);
 		}catch (Exception e) {
 			future.fail(e);
 		}
@@ -399,7 +402,8 @@ public abstract class EventBusAbstractServer{
 	protected void readGetMessage(EventBusMessage message,Future<Object> future) {
 		try {
 			IEventBusHandler<EventBusMessage> handler = getHandler(HttpMethod.GET, message.getPath());
-			handler.handle(message,future);
+			message.setReadFuture(future);
+			handler.handle(message);
 		}catch (Exception e) {
 			future.fail(e);
 		}
@@ -408,7 +412,8 @@ public abstract class EventBusAbstractServer{
 	protected void readDeleteMessage(EventBusMessage message,Future<Object> future) {
 		try {
 			IEventBusHandler<EventBusMessage> handler = getHandler(HttpMethod.DELETE, message.getPath());
-			handler.handle(message, future);
+			message.setReadFuture(future);
+			handler.handle(message);
 		}catch (Exception e) {
 			future.fail(e);
 		}

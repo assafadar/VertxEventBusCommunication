@@ -11,7 +11,6 @@ public interface IEventBusRouter {
 		return new EventBusRouterImpl();
 	}
 	
-	
 	void get(String path,IEventBusHandler<EventBusMessage>handler);
 	void post(String path,IEventBusHandler<EventBusMessage> handler);
 	void put(String path,IEventBusHandler<EventBusMessage> handler);

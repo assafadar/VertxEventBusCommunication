@@ -1,9 +1,8 @@
 package org.crypto.communication.internal.messages;
 
-import java.net.InetAddress;
-
 import org.crypto.communication.internal.utils.StringUtils;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 /**
  * 
@@ -16,6 +15,7 @@ public class EventBusMessage {
 	private String sender;
 	private JsonObject data;
 	private String path;
+	private Future<Object> readFuture;
 	
 	public EventBusMessage(String path, JsonObject data) {
 		super();
@@ -31,6 +31,31 @@ public class EventBusMessage {
 		this.data = data;
 		this.messageID = messageID;
 	}
+	
+	public void setReadFuture(Future<Object> future) {
+		this.readFuture = future;
+	}
+	
+	public Future<Object> getReadFuture() {
+		return this.readFuture;
+	}
+	
+	public void finishMessageReading(JsonObject result) {
+		this.readFuture.complete(result);
+	}
+	
+	public void finishMessageReading() {
+		this.readFuture.complete();
+	}
+	
+	public void messageReadingFailed(Throwable error) {
+		this.readFuture.fail(error);
+	}
+	
+	public void messageReadingFailed(String errorMessage) {
+		this.readFuture.fail(errorMessage);
+	}
+	
 	
 	public EventBusMessage(EventBusMessage eventBusMessage) {
 		this.sender = eventBusMessage.sender;
