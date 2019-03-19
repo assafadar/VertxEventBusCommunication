@@ -13,6 +13,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
 
@@ -23,7 +24,7 @@ public class EventBusVerticle extends AbstractVerticle implements IEventBusUser 
 		try {
 			EventBusNetworking.init(vertx, null,startFuture);
 			EventBusNetworking.getNetworking().getRouter()
-			.get("clients", this::getEventBusClients);
+			.get("clients",this::getEventBusClients);
 			startFuture.complete();
 		} catch (Exception e) {
 			startFuture.fail(e);
@@ -68,8 +69,8 @@ public class EventBusVerticle extends AbstractVerticle implements IEventBusUser 
 		return EventBusVerticle.class.getSimpleName();
 	}
 	
-	public void getEventBusClients(EventBusMessage message, Future<Object> future) {
-		future.complete(MembersManager.getAllClients());
+	public void getEventBusClients(EventBusMessage message) {
+		message.finishMessageReading(new JsonObject().put("clients", MembersManager.getAllClients()));
 	}
 
 }

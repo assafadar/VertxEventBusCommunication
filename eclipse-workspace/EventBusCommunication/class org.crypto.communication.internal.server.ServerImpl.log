@@ -1,2 +1,6 @@
 Mar 10, 2019 3:10:02 PM org.crypto.communication.internal.log.EventBusLogger initializeLogger
 SEVERE: Logger for: ServerImpl started on level: SEVERE
+Mar 19, 2019 8:04:19 AM org.crypto.communication.internal.log.EventBusLogger initializeLogger
+SEVERE: Logger for: ServerImpl started on level: SEVERE
+Mar 19, 2019 8:31:03 AM org.crypto.communication.internal.log.EventBusLogger initializeLogger
+SEVERE: Logger for: ServerImpl started on level: SEVERE

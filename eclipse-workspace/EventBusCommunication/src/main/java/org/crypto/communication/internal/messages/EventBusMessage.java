@@ -24,7 +24,7 @@ public class EventBusMessage {
 		this.messageID = StringUtils.getRandomUUID(path);
 	}
 	
-	public EventBusMessage(String messageID,String sender, String path, JsonObject data) {
+	public EventBusMessage(String messageID, String path, JsonObject data) {
 		super();
 		this.sender = sender;
 		this.path = path;
