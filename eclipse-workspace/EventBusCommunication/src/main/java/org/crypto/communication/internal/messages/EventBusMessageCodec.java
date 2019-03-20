@@ -24,9 +24,9 @@ public class EventBusMessageCodec implements MessageCodec<EventBusMessage, Event
 		int length = buffer.getInt(pos);
 		String jsonSTR = buffer.getString(pos += 4, pos += length);
 		JsonObject content = new JsonObject(jsonSTR);
-
+		
 		return new EventBusMessage(content.getString("messageID"), content.getString("path"),
-				content.getJsonObject("data"));
+				content.getJsonObject("data"),content.getString("sender"));
 	}
 
 	@Override

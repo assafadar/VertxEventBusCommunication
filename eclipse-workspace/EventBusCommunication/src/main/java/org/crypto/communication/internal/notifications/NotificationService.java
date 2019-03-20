@@ -83,6 +83,7 @@ public class NotificationService {
 			WorkerExecutor executor = 
 					vertx.createSharedWorkerExecutor("NEW_CLIENT_NOTIF_"+observer.getClass().getSimpleName());
 			executor.executeBlocking(future -> {
+				System.out.println("---------------------------------Sent new client notif to: "+observer.getClass().getSimpleName()+"----------------------");
 				observer.onNewClient(serverName,future);
 			}, resultHandler -> {
 				if(resultHandler.succeeded()) {

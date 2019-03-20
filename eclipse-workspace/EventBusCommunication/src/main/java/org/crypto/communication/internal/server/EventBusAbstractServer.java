@@ -1,9 +1,12 @@
 package org.crypto.communication.internal.server;
 
 
-import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 import org.crypto.communication.internal.handler.IEventBusHandler;
@@ -16,6 +19,8 @@ import org.crypto.communication.internal.router.EventBusAbstractRouter;
 import org.crypto.communication.internal.router.IEventBusRouter;
 import org.crypto.communication.internal.utils.EventBusMessageUtils;
 import org.crypto.communication.internal.utils.MembersManager;
+
+import com.hazelcast.client.impl.protocol.constants.ResponseMessageConst;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -90,10 +95,13 @@ public abstract class EventBusAbstractServer{
 							if(resultHandler.succeeded()) {
 								message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
 								NotificationService.sendMessageSuccessNotification(message, vertx);
+								System.out.println("===============================Message successedded===============================");
 							}else {
 								resultHandler.cause().printStackTrace();
 								message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 								NotificationService.sendMessageFailedNotfication(message, vertx);
+								System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!! message failed: "+
+								resultHandler.cause().getMessage()+" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 							}
 						});
 					});
@@ -115,9 +123,13 @@ public abstract class EventBusAbstractServer{
 					if(resultHandler.succeeded()) {
 						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
 						NotificationService.sendMessageSuccessNotification(message, vertx);
+						System.out.println("===============================Message successedded===============================");
 					}else {
 						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 						NotificationService.sendMessageFailedNotfication(message, vertx);
+
+						System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!! message failed: "+
+						resultHandler.cause().getMessage()+" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 					}
 				});
 			});
@@ -140,9 +152,14 @@ public abstract class EventBusAbstractServer{
 					if(resultHandler.succeeded()) {
 						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
 						NotificationService.sendMessageSuccessNotification(message, vertx);
+
+						System.out.println("===============================Message successedded===============================");
 					}else {
 						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 						NotificationService.sendMessageFailedNotfication(message, vertx);
+
+						System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!! message failed: "+
+						resultHandler.cause().getMessage()+" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 					}
 				});
 			});
@@ -165,9 +182,14 @@ public abstract class EventBusAbstractServer{
 					if(resultHandler.succeeded()) {
 						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
 						NotificationService.sendMessageSuccessNotification(message, vertx);
+
+						System.out.println("===============================Message successedded===============================");
 					}else {
 						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 						NotificationService.sendMessageFailedNotfication(message, vertx);
+
+						System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!! message failed: "+
+						resultHandler.cause().getMessage()+" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 					}
 				});
 			});
@@ -189,9 +211,14 @@ public abstract class EventBusAbstractServer{
 					if(resultHandler.succeeded()) {
 						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
 						NotificationService.sendMessageSuccessNotification(message, vertx);
+
+						System.out.println("===============================Message successedded===============================");
 					}else {
 						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 						NotificationService.sendMessageFailedNotfication(message, vertx);
+
+						System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!! message failed: "+
+						resultHandler.cause().getMessage()+" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 					}
 				});
 			});
@@ -213,9 +240,13 @@ public abstract class EventBusAbstractServer{
 					if(resultHandler.succeeded()) {
 						message.setData(EventBusMessageUtils.getSuccessMessage(resultHandler.result()));
 						NotificationService.sendMessageSuccessNotification(message, vertx);
+						System.out.println("===============================Message successedded===============================");
 					}else {
 						message.setData(EventBusMessageUtils.getErrorMessage(resultHandler.cause()));
 						NotificationService.sendMessageFailedNotfication(message, vertx);
+
+						System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!! message failed: "+
+						resultHandler.cause().getMessage()+" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 					}
 				});
 			});
@@ -249,7 +280,7 @@ public abstract class EventBusAbstractServer{
 	
 	/**
 	 * @publish - send the same message to many recipients */
-	private void publishMessage(JsonArray addresses, HttpMethod method,EventBusMessage message)throws Exception {
+	private void publishMessage(Set<String> addresses, HttpMethod method,EventBusMessage message)throws Exception {
 		EventBusNetworking.getNetworking().sendMultipleMessages(addresses, method, message);
 	}
 	
@@ -271,16 +302,19 @@ public abstract class EventBusAbstractServer{
 	 */
 	private void subscribeToMembers(EventBusMessage reponseMessage) {
 		try {
-			JsonArray members = reponseMessage.getData().getJsonArray("members");
+			Set<String> clients = new HashSet<>();
+			JsonArray clientsArray = reponseMessage.getData().getJsonArray("members");
 			JsonObject methods = new JsonObject().put("methods", new JsonArray().add(HttpMethod.CONNECT)
 					.add(HttpMethod.GET).add(HttpMethod.POST).add(HttpMethod.PUT).add(HttpMethod.DELETE).add(HttpMethod.OTHER));
 			MembersManager.addClient(reponseMessage.getSender(), methods, vertx);
-			for(int i = 0; i<members.size(); i++) {
-				MembersManager.addClient(members.getString(i), methods, vertx);
+			for(int i = 0; i<clientsArray.size(); i++) {
+				MembersManager.addClient(clientsArray.getString(i), methods, vertx);
+				clients.add(clientsArray.getString(i));
 			}
-			if(members.size()>0) {
-				EventBusMessage connectMessage = EventBusMessageUtils.connectMessage(); 
-				EventBusNetworking.getNetworking().sendMultipleMessages(members, HttpMethod.CONNECT, connectMessage);
+			if(clientsArray.size()>0) {
+				EventBusMessage connectMessage = EventBusMessageUtils.connectMessage();
+				
+				EventBusNetworking.getNetworking().sendMultipleMessages(clients, HttpMethod.CONNECT, connectMessage);
 			}
 			EventBusNetworking.getNetworking().markAsConnected();
 			this.deploymentFuture.complete();
@@ -293,6 +327,7 @@ public abstract class EventBusAbstractServer{
 	public void gotConnectResponse(EventBusMessage messag) {
 		try {
 			EventBusLogger.INFO(getClass(),messag.getSender()+ " responded properly to subscribe request", LOG_LEVEL);
+			EventBusNetworking.getNetworking().markAsConnected();
 			messag.finishMessageReading();
 		}catch (Exception e) {
 			messag.messageReadingFailed(e);
@@ -301,7 +336,7 @@ public abstract class EventBusAbstractServer{
 	public void addEventBusMember(EventBusMessage message) {
 		try {
 			MembersManager.addClient(message.getSender(),  message.getData(),vertx);
-			message.finishMessageReading(null);
+			message.finishMessageReading();
 		}catch (Exception e) {
 			message.messageReadingFailed(e);
 		}
@@ -309,10 +344,10 @@ public abstract class EventBusAbstractServer{
 	
 	protected void close() {
 		EventBusMessage message = new EventBusMessage("disconnect",null);
-		JsonArray jsonArray = MembersManager.getAllClients();
+		Set<String> clients = MembersManager.getAllClients();
 		
 		try {
-			publishMessage(jsonArray, HttpMethod.CONNECT, message);
+			publishMessage(clients, HttpMethod.CONNECT, message);
 		}catch (Exception e) {
 			e.printStackTrace();
 		}

@@ -1,5 +1,9 @@
 package org.crypto.communication.internal.client;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.crypto.communication.internal.messages.EventBusMessage;
 import org.crypto.communication.internal.utils.MembersManager;
 
@@ -18,13 +22,16 @@ public class EventBusClient extends EventBusAbstractClient {
 	@Override
 	public void onNewClient(String serverName,Future<Object> future) {
 		try {
-			JsonArray members = MembersManager.getAllClients().copy();
-			for(int i=0; i<members.size(); i++) {
-				if(members.getString(i).equals(serverName)) {
-					members.remove(i);
+			Set<String> existingMembers =MembersManager.getAllClients(); 
+			Set<String> members = new HashSet<>(existingMembers);
+			String toRemove = "";
+			for(String client : members) {
+				if(client.equals(serverName)) {
+					toRemove = client;
 				}
 			}
-			EventBusMessage message = new EventBusMessage("connectToAll",new JsonObject().put("members", members));
+			members.remove(toRemove);
+			EventBusMessage message = new EventBusMessage("connectToAll",new JsonObject().put("members", new ArrayList<>(members)));
 			sendMessage(serverName, HttpMethod.CONNECT, message);
 			future.complete();
 		}catch (Exception e) {

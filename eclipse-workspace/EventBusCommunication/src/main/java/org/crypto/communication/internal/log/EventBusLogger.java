@@ -30,10 +30,10 @@ public class EventBusLogger {
 		Logger logger = Logger.getLogger(clzz.getSimpleName());
 		FileHandler fileHandler;
 		try {
-			fileHandler = new FileHandler(logFilePath+clzz+".log",true);
-			fileHandler.setFormatter(new SimpleFormatter());
-			fileHandler.flush();
-			logger.addHandler(fileHandler);
+//			fileHandler = new FileHandler(logFilePath+clzz+".log",true);
+//			fileHandler.setFormatter(new SimpleFormatter());
+//			fileHandler.flush();
+//			logger.addHandler(fileHandler);
 			logger.setLevel(logLevel);
 		}catch (Exception e) {
 			throw new IllegalStateException("Log creating failed: "+e.getMessage(),e);

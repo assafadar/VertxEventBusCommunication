@@ -2,19 +2,17 @@ package org.crypto.communication.internal.net;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Set;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.crypto.communication.internal.client.ClientImpl;
 import org.crypto.communication.internal.client.EventBusAbstractClient;
 import org.crypto.communication.internal.client.EventBusClient;
 import org.crypto.communication.internal.log.EventBusLogger;
 import org.crypto.communication.internal.messages.EventBusMessage;
-import org.crypto.communication.internal.router.EventBusAbstractRouter;
 import org.crypto.communication.internal.router.IEventBusRouter;
 import org.crypto.communication.internal.server.EventBusAbstractServer;
 import org.crypto.communication.internal.server.ServerImpl;
-import org.crypto.communication.internal.utils.EventBusMessageUtils;
 import org.crypto.communication.internal.utils.MembersManager;
 import org.crypto.communication.internal.verticle.IEventBusUser;
 
@@ -22,10 +20,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.WorkerExecutor;
-import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -145,7 +140,7 @@ public class EventBusNetworking{
 	 * 
 	 * sends the same message trough the event bus client to the event bus for the registered consumers.
 	 */
-	public void sendMultipleMessages(JsonArray addresses, HttpMethod requestMethod, EventBusMessage message) throws Exception{
+	public void sendMultipleMessages(Set<String> addresses, HttpMethod requestMethod, EventBusMessage message) throws Exception{
 		addresses.forEach( address -> {
 			try {
 				eventBusClientImpl.sendMessage((String)address, requestMethod, message);
