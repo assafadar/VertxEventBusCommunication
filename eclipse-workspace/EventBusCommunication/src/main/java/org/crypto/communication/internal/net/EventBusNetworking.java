@@ -48,15 +48,18 @@ public class EventBusNetworking{
 	/**
 	 * Event bus networking instantiation
 	 */
-	private EventBusNetworking(String verticleName,Future<Void> deploymentFuture) {
+	private EventBusNetworking(String verticleName,Handler<AsyncResult<Void>> deploymentHandler) {
 		if(vertx == null) {
 			throw new IllegalArgumentException("Vertx instance is needed");
 		}
-		eventBusServerImpl = new ServerImpl((verticleName == null)?MembersManager.getDefaultName() 
-				: verticleName,vertx,deploymentFuture);
+		String name = (verticleName == null)?MembersManager.getDefaultName():verticleName;
+		
+		eventBusServerImpl = new ServerImpl(name,vertx,deploymentHandler);
+		
 		eventBusClientImpl = (verticleName == null || verticleName.equals("") )? 
 				new EventBusClient(vertx) : new ClientImpl(verticleName,vertx);
-		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx);
+				
+		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx,name);
 	
 	}
 	
@@ -65,9 +68,9 @@ public class EventBusNetworking{
 	 * @param vertx
 	 * sets vertx instance and returns networking instance.
 	 */
-	public static EventBusNetworking init(Vertx vertx,IEventBusUser verticle,Future<Void> deploymentFuture) {
+	public static EventBusNetworking init(Vertx vertx,IEventBusUser verticle,Handler<AsyncResult<Void>> deploymentHandler) {
 		EventBusNetworking.vertx = vertx;
-		return getNetworking((verticle == null)?null:verticle.verticleName(),deploymentFuture);
+		return getNetworking((verticle == null)?null:verticle.verticleName(),deploymentHandler);
 	}
 	
 	/**
@@ -82,9 +85,9 @@ public class EventBusNetworking{
 		return INSTANCE;
 	}
 	
-	private static EventBusNetworking getNetworking(String verticleName,Future<Void> deploymentFuture) {
+	private static EventBusNetworking getNetworking(String verticleName,Handler<AsyncResult<Void>> deploymentHandler) {
 		if(INSTANCE == null) {
-			INSTANCE = new EventBusNetworking(verticleName,deploymentFuture);
+			INSTANCE = new EventBusNetworking(verticleName,deploymentHandler);
 		}
 		
 		EventBusLogger.INFO(EventBusNetworking.class, "Client & Server replaced", LOG_LEVEL);

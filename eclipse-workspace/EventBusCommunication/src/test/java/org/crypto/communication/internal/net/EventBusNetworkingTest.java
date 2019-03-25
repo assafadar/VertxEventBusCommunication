@@ -26,7 +26,7 @@ public class EventBusNetworkingTest {
 	
 	@Test
 	public void logger(TestContext ctx) {
-		EventBusLogger.createLogger(getClass(),Level.SEVERE,Vertx.vertx());
+		EventBusLogger.createLogger(getClass(),Level.SEVERE,Vertx.vertx(),"TEST");
 	}
 	
 	

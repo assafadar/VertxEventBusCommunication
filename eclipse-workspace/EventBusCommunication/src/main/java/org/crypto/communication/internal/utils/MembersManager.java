@@ -26,7 +26,7 @@ public class MembersManager {
 		eventBusClients = new HashMap<>();
 		clientNames = new HashSet<>();
 		registerDefaultClient();
-		EventBusLogger.createLogger(MembersManager.class, LOG_LEVEL, vertx);
+		EventBusLogger.createLogger(MembersManager.class, LOG_LEVEL, vertx,"Members Manager");
 	}
 
 	private static void registerDefaultClient() {

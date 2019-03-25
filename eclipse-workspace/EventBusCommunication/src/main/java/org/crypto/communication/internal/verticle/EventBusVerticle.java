@@ -22,7 +22,14 @@ public class EventBusVerticle extends AbstractVerticle implements IEventBusUser 
 	@Override
 	public void start(Future<Void> startFuture) {
 		try {
-			EventBusNetworking.init(vertx, null,startFuture);
+			EventBusNetworking.init(vertx, null,res -> {
+				if(res.succeeded()) {
+					System.out.println("-----------------------------CLUSTER IS UP-----------------------");
+				}else {
+					res.cause().printStackTrace();
+					System.out.println("-----------------------------CLUSTER IS DOWN---------------------------");
+				}
+			});
 			EventBusNetworking.getNetworking().getRouter()
 			.get("clients",this::getEventBusClients);
 			startFuture.complete();
@@ -43,7 +50,7 @@ public class EventBusVerticle extends AbstractVerticle implements IEventBusUser 
 		}catch (Exception e) {
 			// TODO: handle exception
 		}
-		HazelcastClusterManager clusterManager = 
+		ClusterManager clusterManager = 
 				new HazelcastClusterManager(clusterConfing);
 		
 		vertxOptions.setClusterManager(clusterManager);

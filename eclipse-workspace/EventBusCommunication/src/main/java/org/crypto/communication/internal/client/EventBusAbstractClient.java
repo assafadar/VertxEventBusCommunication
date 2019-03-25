@@ -37,7 +37,8 @@ import io.vertx.core.logging.LoggerFactory;
  * @author asaf
  * @since 12/2018
  * @description - 
- * 		Event bus client template with minimal functionality to be interpreted by inheriting objects.
+ * 		Event bus client template with minimal functionality to be interpreted by inheriting objects
+ * 		or to be used as a communication client.
  * 
  * @param eventBus - of the relevant Vertx object.
  * @param cleintName - the name of the sender for outgoing messages.
@@ -63,7 +64,7 @@ public abstract class EventBusAbstractClient
 		NotificationService.addNewClientObservers(this);
 		NotificationService.addMessageSuccessObservers(this);
 		NotificationService.addMessageFailedObservers(this);
-		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx);
+		EventBusLogger.createLogger(getClass(),LOG_LEVEL,vertx,clientName);
 		//Connecting first to the event bus verticle instance in order to get managed connection list.
 		sendConnectRequest();
 		
@@ -125,6 +126,8 @@ public abstract class EventBusAbstractClient
 					removeAwaitingResponseMessage(message.getMessageID());
 				}
 				EventBusLogger.ERROR(getClass(), result.cause(), LOG_LEVEL);
+				System.out.println("------------Failed sending message to event bus: "+result.cause().getMessage()
+						+"----------------------------------");
 				throw new UncheckedIOException(new IOException(result.cause()));
 			}
 		});
@@ -158,6 +161,7 @@ public abstract class EventBusAbstractClient
 			EventBusMessage connectResponse = new EventBusMessage("connectResponse",new JsonObject());
 			sendMessage(serverName, HttpMethod.OTHER, connectResponse);
 		}catch (Exception e) {
+			System.out.println("-----------Failed in new client listener in abstract client: "+e.getMessage()+"----------------");
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
 		}
 	}
@@ -171,6 +175,7 @@ public abstract class EventBusAbstractClient
 				EventBusLogger.INFO(getClass(), "Response to message: "+errorMessage.getMessageID()
 				+" sent as error message", LOG_LEVEL);
 			}else {
+				System.out.println("----------Messag Failed with no response hadnler---------------------");
 				EventBusLogger.ERROR(getClass(), (Throwable) errorMessage.getData().getValue("error")
 						,"Messag Failed with no response hadnler", LOG_LEVEL);
 			}
@@ -193,6 +198,7 @@ public abstract class EventBusAbstractClient
 //			}
 			sendMessage(message.getSender(), HttpMethod.OTHER, message);
 		}catch (Exception e) {
+			System.out.println("-----------Failed in on message succedded: "+e.getMessage()+"--------------------");
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
 			future.fail(e);
 		}

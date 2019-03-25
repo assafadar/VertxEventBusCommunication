@@ -1,10 +1,8 @@
 package org.crypto.communication.internal.server;
 
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -19,8 +17,6 @@ import org.crypto.communication.internal.router.EventBusAbstractRouter;
 import org.crypto.communication.internal.router.IEventBusRouter;
 import org.crypto.communication.internal.utils.EventBusMessageUtils;
 import org.crypto.communication.internal.utils.MembersManager;
-
-import com.hazelcast.client.impl.protocol.constants.ResponseMessageConst;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -43,25 +39,28 @@ public abstract class EventBusAbstractServer{
 	private EventBusAbstractRouter router;
 	//Designated for the client in order to save result handlers for sent messages - Should be used by the OTHER method handler of the server. 
 	private Map<String,Handler<AsyncResult<JsonObject>>> responseHandlers;
-	private Future<Void> deploymentFuture;
 	
-	public EventBusAbstractServer(Vertx vertx, String serverName,Future<Void> deploymentFuture){
-		super();
-		MembersManager.init(vertx);
-		EventBusLogger.createLogger(getClass(), LOG_LEVEL,vertx);
-		this.vertx = vertx;
-		this.eventBus = vertx.eventBus();
-		this.serverName = serverName;
-		this.consumers = new HashMap<>();
-		this.router = IEventBusRouter.create();
-		this.responseHandlers  = new HashMap<>();
-		this.deploymentFuture = deploymentFuture;
-		registerConsumers();
-		registerMandatoryMessageHandlers();
+	public EventBusAbstractServer(Vertx vertx, String serverName,Handler<AsyncResult<Void>> deploymentHandler){
+		try {
+			MembersManager.init(vertx);
+			EventBusLogger.createLogger(getClass(), LOG_LEVEL,vertx,serverName);
+			this.vertx = vertx;
+			this.eventBus = vertx.eventBus();
+			this.serverName = serverName;
+			this.consumers = new HashMap<>();
+			this.router = IEventBusRouter.create();
+			this.responseHandlers  = new HashMap<>();
+			registerConsumers();
+			registerMandatoryMessageHandlers();
+			deploymentHandler.handle(Future.succeededFuture());
+		}catch (Exception e) {
+			// TODO: handle exception
+			deploymentHandler.handle(Future.failedFuture(e));
+		}
 	}
 	
 	//Creating handlers for the connect and disconnect calls.
-	private void registerMandatoryMessageHandlers(){
+	private void registerMandatoryMessageHandlers() throws Exception{
 		try {
 			this.router.connect("connect", this::addEventBusMember);
 			this.router.connect("disconnect", this::removeEventBusMember);
@@ -70,14 +69,16 @@ public abstract class EventBusAbstractServer{
 			EventBusLogger.INFO(getClass(), "Mandatory handlers registered successfully", LOG_LEVEL);
 		}catch (Exception e) {
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
+			System.out.println("------------Failed in registerMandatoryMessageHandlers: "+e.getMessage()+"-----------------");
+			throw new Exception(e);
 		}
 	}
 
 	//Register consumers for all HTTP methods.
-	protected void registerConsumers() {
+	protected void registerConsumers() throws Exception{
 		try {
-//			this.eventBus.registerCodec(new EventBusMessageCodec()); 
 			this.eventBus.registerDefaultCodec(EventBusMessage.class, new EventBusMessageCodec());
+			
 			MessageConsumer<EventBusMessage> connectConsumer = this.eventBus.consumer(serverName+HttpMethod.CONNECT,
 					msg ->{
 						EventBusMessage message = new EventBusMessage((EventBusMessage)msg.body());
@@ -254,24 +255,28 @@ public abstract class EventBusAbstractServer{
 			addConsumer(HttpMethod.OTHER, otherConsumer);
 			
 		}catch (Exception e) {
+			System.out.println("---------------------------------- Failed in creating consumers: "+e.getMessage()+"------------------");
 			EventBusLogger.ERROR(getClass(), e, LOG_LEVEL);
 			System.exit(500);
+			throw new Exception(e);
 		}
 		
 	}
 	
-	private void addConsumer(HttpMethod method, MessageConsumer<EventBusMessage> consumer) {
+	private void addConsumer(HttpMethod method, MessageConsumer<EventBusMessage> consumer) throws Exception{
 		consumer.completionHandler(res -> {
 			if(res.succeeded()) {
 				consumers.put(method, consumer);
 				EventBusLogger.INFO(getClass(), method+" consumer registered", LOG_LEVEL);
 				System.out.println(method+" consumer registered");
 			}else {
+				System.out.println("---------consumer registration failed: "+res.cause().getMessage());
 				EventBusLogger.ERROR(getClass(), res.cause(),method+" registration failed",LOG_LEVEL);
 			}
 		});
 		
 		consumer.exceptionHandler(exception -> {
+			System.out.println("Exception in: "+consumer.address()+" due to: "+exception.getMessage());
 			EventBusLogger.ERROR(getClass(), exception, LOG_LEVEL);
 		});
 		
@@ -317,7 +322,6 @@ public abstract class EventBusAbstractServer{
 				EventBusNetworking.getNetworking().sendMultipleMessages(clients, HttpMethod.CONNECT, connectMessage);
 			}
 			EventBusNetworking.getNetworking().markAsConnected();
-			this.deploymentFuture.complete();
 			reponseMessage.finishMessageReading();
 		}catch (Exception e) {
 			reponseMessage.messageReadingFailed(e);
@@ -411,6 +415,7 @@ public abstract class EventBusAbstractServer{
 			message.setReadFuture(future);
 			handler.handle(message);
 		}catch (Exception e) {
+			System.out.println("-----------Reading connect message failed: "+e.getMessage()+"------------");
 			future.fail(e);
 		}
 	}
@@ -420,6 +425,7 @@ public abstract class EventBusAbstractServer{
 			message.setReadFuture(future);
 			handler.handle(message);
 		}catch (Exception e) {
+			System.out.println("-----------Reading post message failed: "+e.getMessage()+"------------");
 			future.fail(e);
 		}
 	}
@@ -430,6 +436,7 @@ public abstract class EventBusAbstractServer{
 			message.setReadFuture(future);
 			handler.handle(message);
 		}catch (Exception e) {
+			System.out.println("-----------Reading put message failed: "+e.getMessage()+"------------");
 			future.fail(e);
 		}
 	}
@@ -440,6 +447,7 @@ public abstract class EventBusAbstractServer{
 			message.setReadFuture(future);
 			handler.handle(message);
 		}catch (Exception e) {
+			System.out.println("-----------Reading get message failed: "+e.getMessage()+"------------");
 			future.fail(e);
 		}
 	}
@@ -450,6 +458,7 @@ public abstract class EventBusAbstractServer{
 			message.setReadFuture(future);
 			handler.handle(message);
 		}catch (Exception e) {
+			System.out.println("-----------Reading delete message failed: "+e.getMessage()+"------------");
 			future.fail(e);
 		}
 	}
@@ -465,9 +474,11 @@ public abstract class EventBusAbstractServer{
 		}catch (NullPointerException e) {
 			EventBusLogger.INFO(getClass(), "Message: "+message.getMessageID()
 			+" got valid response from event bus", LOG_LEVEL);
+			
 		}
 		catch (Exception e) {
 			EventBusLogger.ERROR(getClass(), e,"Failed handling message reponse: "+message.getMessageID(), LOG_LEVEL);
+			System.out.println("-----------Reading message response failed: "+e.getMessage()+"------------");
 		}
 	}
 	
